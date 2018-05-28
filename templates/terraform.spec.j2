@@ -1,0 +1,30 @@
+Name:           terraform
+Version:        {{ version }}
+Release:        1%{?dist}
+Summary:        Write, Plan, and Create Infrastructure as Code
+
+License:        Mozilla Public License 2.0
+URL:            https://www.terraform.io/
+Source0:        terraform-{{ version }}.tar
+
+%description
+HashiCorp Terraform enables you to safely and predictably create, change, and improve infrastructure. It is an open source tool that codifies APIs into declarative configuration files that can be shared amongst team members, treated as code, edited, reviewed, and versioned.
+
+%prep
+%autosetup
+
+%install
+rm -rf $RPM_BUILD_ROOT
+mkdir -p %{buildroot}/%{_bindir}
+install -p -m 755 terraform %{buildroot}/%{_bindir}
+
+%files
+%{_bindir}/terraform
+%license LICENSE
+%doc BUILDING.md
+%doc CHANGELOG.md
+%doc README.md
+
+%changelog
+* Mon May 28 2018 <{{ ansible_env.USER }}@{{ ansible_env.HOSTNAME }}>
+- Initial revision of package
