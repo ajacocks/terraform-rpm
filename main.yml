@@ -1,0 +1,134 @@
+- name: Automatically generate RPMs from Terraform downloads
+  hosts: localhost
+  vars:
+  - arch: "amd64"
+  - version: "current"
+  - downloadURL: "https://releases.hashicorp.com/terraform/"
+  - releaseURL: "https://github.com/hashicorp/terraform/releases/latest"
+  - rpmTools:
+    - rpm-build
+    - rpmdevtools
+
+  tasks:
+  - name: install required rpm development tools
+    package:
+      name: "{{ item }}"
+      state: latest
+    with_items: "{{ rpmTools }}"
+    become: yes
+  - name: create rpm development tree in user home directory
+    command: rpmdev-setuptree
+  - name: create temp working directory
+    tempfile:
+      state: directory
+      prefix: "tf."
+    register: tempdir
+  - name: get the latest release file from github
+    get_url:
+      url: "{{ releaseURL }}"
+      dest: "{{ tempdir.path }}/latest"
+  - name: register the contents
+    slurp:
+      src: "{{ tempdir.path }}/latest"
+    register: releaseFile
+  - name: set the release variable
+    set_fact:
+      version: "{{ releaseFile.content | b64decode | regex_search('<title>.*</title>') | regex_replace('^<title>Release v','') | regex_replace(' .*$','') }}"
+    when: version == "current"
+  - debug:
+      var: version
+  - name: get the latest release archive from hashicorp
+    get_url:
+      url: "{{ downloadURL }}{{ version }}/terraform_{{ version }}_linux_{{ arch }}.zip"
+      dest: "{{ tempdir.path }}/terraform_{{ version }}_linux_{{ arch }}.zip"
+  - name: create source archive build directory
+    file:
+      path: "{{ tempdir.path }}/terraform-{{ version }}"
+      state: directory
+  - name: extract terraform zipfile to build directory
+    unarchive:
+      src: "{{ tempdir.path }}/terraform_{{ version }}_linux_{{ arch }}.zip"
+      dest: "{{ tempdir.path }}/terraform-{{ version }}/"
+  - name: get the docs from github
+    get_url:
+      url: "{{ item.src }}"
+      dest: "{{ tempdir.path }}/terraform-{{ version }}/{{ item.name }}"
+    with_items:
+    - { name: "BUILDING.md", src: "https://github.com/hashicorp/terraform/raw/master/BUILDING.md" }
+    - { name: "CHANGELOG.md", src: "https://github.com/hashicorp/terraform/raw/master/CHANGELOG.md" }
+    - { name: "LICENSE", src: "https://github.com/hashicorp/terraform/raw/master/LICENSE" }
+    - { name: "README.md", src: "https://github.com/hashicorp/terraform/raw/master/README.md" }
+  - name: create the new source archive
+    archive:
+      path: "{{ tempdir.path }}/terraform-{{ version }}"
+      dest: "{{ ansible_env.HOME }}/rpmbuild/SOURCES/terraform-{{ version }}.tar"
+      format: tar
+  - name: remove temp directory
+    file:
+      path: "{{ tempdir.path }}"
+      state: absent
+  - name: remove existing spec files
+    file:
+      path: "{{ ansible_env.HOME }}/rpmbuild/SPECS/terraform-{{ version }}.spec"
+      state: absent
+  - name: create spec file
+    command: "rpmdev-newspec terraform-{{ version }}"
+    args:
+      chdir: "{{ ansible_env.HOME }}/rpmbuild/SPECS/"
+      creates: "{{ ansible_env.HOME }}/rpmbuild/SPECS/terraform-{{ version }}.spec"
+  - name: update spec file
+    block:
+    - name: spec file changes
+      lineinfile:
+        path: "{{ ansible_env.HOME }}/rpmbuild/SPECS/terraform-{{ version }}.spec"
+        state: present
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      with_items:
+        - { regexp: '^-$', line: "- Initial revision of package" }
+        - { regexp: '^Name:', line: "Name:           terraform" }
+        - { regexp: '^Version:', line: "Version:        {{ version }}" }
+        - { regexp: '^Summary:', line: "Summary:        Write, Plan, and Create Infrastructure as Code" }
+        - { regexp: '^License:', line: "License:        Mozilla Public License 2.0" }
+        - { regexp: '^URL:', line: "URL:            https://www.terraform.io/" }
+        - { regexp: '^Source0:', line: "Source0:        terraform-{{ version }}.tar" }
+        - { regexp: '%doc add-docs-here', line: "%doc BUILDING.md" }
+        - { regexp: '%license add-license-file-here', line: "%license LICENSE" }
+    - name: spec file subtractions
+      lineinfile:
+        path: "{{ ansible_env.HOME }}/rpmbuild/SPECS/terraform-{{ version }}.spec"
+        state: absent
+        regexp: "{{ item }}"
+      with_items:
+        - '^BuildRequires:'
+        - '^%build'
+        - '^%configure'
+        - '^%make_build'
+        - '^%make_install'
+        - '^Requires:'
+    - name: spec file insertions after
+      lineinfile:
+        path: "{{ ansible_env.HOME }}/rpmbuild/SPECS/terraform-{{ version }}.spec"
+        state: present
+        insertafter: "{{ item.insertafter }}"
+        line: "{{ item.line }}"
+      with_items:
+      - { insertafter: '^%description$', line: "HashiCorp Terraform enables you to safely and predictably create, change, and improve infrastructure. It is an open source tool that codifies APIs into declarative configuration files that can be shared amongst team members, treated as code, edited, reviewed, and versioned." }
+      - { insertafter: '^%doc BUILDING.md', line: "%doc CHANGELOG.md" }
+      - { insertafter: '^%doc CHANGELOG.md', line: "%doc README.md" }
+      - { insertafter: '^%files', line: "%{_bindir}/terraform" }
+      - { insertafter: '^rm -rf \$RPM_BUILD_ROOT$', line: "mkdir -p %{buildroot}/%{_bindir}" }
+      - { insertafter: '^mkdir -p %{buildroot}/%{_bindir}', line: "install -p -m 755 terraform %{buildroot}/%{_bindir}" }
+  - name: build rpm
+    command: "rpmbuild -bb {{ ansible_env.HOME }}/rpmbuild/SPECS/terraform-{{ version }}.spec"
+    register: rpmbuild
+  - name: set the rpm file variable
+    set_fact:
+      rpmFile: "{{ rpmbuild.stdout_lines.8 | regex_replace('^Wrote: ','') }}"
+  - debug:
+      var: rpmFile
+  - name: install terraform
+    package:
+      name: "{{ rpmFile }}"
+      state: latest
+    become: true
