@@ -7,7 +7,4 @@ If the version that you build is newer than what you have installed, it will be 
 
 ## Usage
 
-[source, bash]
-----
-ansible-playbook main.yml -K [ --extra-vars "version=<desired version>" ]
-----
+`ansible-playbook main.yml -K [ --extra-vars "version=<desired version>" ]`
