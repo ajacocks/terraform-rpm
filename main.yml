@@ -75,54 +75,6 @@
     template:
       src: terraform.spec.j2
       dest: "{{ ansible_env.HOME }}/rpmbuild/SPECS/terraform-{{ version }}.spec"
-#  - name: create spec file
-#    command: "rpmdev-newspec terraform-{{ version }}"
-#    args:
-#      chdir: "{{ ansible_env.HOME }}/rpmbuild/SPECS/"
-#      creates: "{{ ansible_env.HOME }}/rpmbuild/SPECS/terraform-{{ version }}.spec"
-#  - name: update spec file
-#    block:
-#    - name: spec file changes
-#      lineinfile:
-#        path: "{{ ansible_env.HOME }}/rpmbuild/SPECS/terraform-{{ version }}.spec"
-#        state: present
-#        regexp: "{{ item.regexp }}"
-#        line: "{{ item.line }}"
-#      with_items:
-#        - { regexp: '^-$', line: "- Initial revision of package" }
-#        - { regexp: '^Name:', line: "Name:           terraform" }
-#        - { regexp: '^Version:', line: "Version:        {{ version }}" }
-#        - { regexp: '^Summary:', line: "Summary:        Write, Plan, and Create Infrastructure as Code" }
-#        - { regexp: '^License:', line: "License:        Mozilla Public License 2.0" }
-#        - { regexp: '^URL:', line: "URL:            https://www.terraform.io/" }
-#        - { regexp: '^Source0:', line: "Source0:        terraform-{{ version }}.tar" }
-#        - { regexp: '%doc add-docs-here', line: "%doc BUILDING.md" }
-#        - { regexp: '%license add-license-file-here', line: "%license LICENSE" }
-#    - name: spec file subtractions
-#      lineinfile:
-#        path: "{{ ansible_env.HOME }}/rpmbuild/SPECS/terraform-{{ version }}.spec"
-#        state: absent
-#        regexp: "{{ item }}"
-#      with_items:
-#        - '^BuildRequires:'
-#        - '^%build'
-#        - '^%configure'
-#        - '^%make_build'
-#        - '^%make_install'
-#        - '^Requires:'
-#    - name: spec file insertions after
-#      lineinfile:
-#        path: "{{ ansible_env.HOME }}/rpmbuild/SPECS/terraform-{{ version }}.spec"
-#        state: present
-#        insertafter: "{{ item.insertafter }}"
-#        line: "{{ item.line }}"
-#      with_items:
-#      - { insertafter: '^%description$', line: "HashiCorp Terraform enables you to safely and predictably create, change, and improve infrastructure. It is an open source tool that codifies APIs into declarative configuration files that can be shared amongst team members, treated as code, edited, reviewed, and versioned." }
-#      - { insertafter: '^%doc BUILDING.md', line: "%doc CHANGELOG.md" }
-#      - { insertafter: '^%doc CHANGELOG.md', line: "%doc README.md" }
-#      - { insertafter: '^%files', line: "%{_bindir}/terraform" }
-#      - { insertafter: '^rm -rf \$RPM_BUILD_ROOT$', line: "mkdir -p %{buildroot}/%{_bindir}" }
-#      - { insertafter: '^mkdir -p %{buildroot}/%{_bindir}', line: "install -p -m 755 terraform %{buildroot}/%{_bindir}" }
   - name: build rpm
     command: "rpmbuild -bb {{ ansible_env.HOME }}/rpmbuild/SPECS/terraform-{{ version }}.spec"
     register: rpmbuild
