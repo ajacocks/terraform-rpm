@@ -26,5 +26,5 @@ install -p -m 755 terraform %{buildroot}/%{_bindir}
 %doc README.md
 
 %changelog
-* Mon May 28 2018 <{{ ansible_env.USER }}@{{ ansible_env.HOSTNAME }}>
+* Mon May 28 2018 <{{ ansible_env.USER | default( ansible_env.USERNAME ) }}@{{ ansible_hostname }}>
 - Initial revision of package
